@@ -73,14 +73,15 @@ bstree<T>* bstree<T>::RemoveNode(T aval, bstree<T> *prev_node){
             // right swap is used x2 so use lambda
             auto swap_right = [](bstree<T>* obj)mutable {
                 // copy over all of right childs members 
-                obj->val = obj->right->val;
-                obj->right = obj->right->right;
-                obj->left = obj->right->left;
-                delete obj->right; // dealloc right child
+                bstree<T> *to_delete {obj->right};
+                obj->val = to_delete->val;
+                obj->right = to_delete->right;
+                obj->left = to_delete->left;
+                delete to_delete; // dealloc right child
             };
 
         if (this->left == nullptr && this->right != nullptr){
-            // case 2a => one right child node
+            // [PASSED] case 2a => one right child node
             swap_right(this);
 
         } else if (this->left != nullptr && this->right == nullptr){
@@ -278,8 +279,13 @@ int main(int argvc, char **argv){
         PrintFindValue(find_remove_int, root);
 
         // remove node terminal node
+        // test: node with no children
         root->RemoveNode(find_remove_int, nullptr);
         PrintFindValue(find_remove_int, root);
+
+        // test: node with only one (right) terminal child
+        root->RemoveNode(10, nullptr);
+        PrintFindValue(10, root);
 
         // dealloc tree
         root->DeleteBST();
