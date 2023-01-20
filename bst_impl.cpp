@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdio>
 #include <unordered_set>
+#include <random>
 
 template <typename T>
 class bstree {
@@ -126,7 +127,21 @@ std::pair<bool, i2DVEC> TestBST(bstree<T> *root, std::vector<int>* vecp_included
 
 template <typename T>
 void CreateIncorrectVector(std::vector<T> *vec_incorrect, std::unordered_set<T> *included_set){
-    
+    // psuedo random num generator set up
+    std::random_device rd;
+    std::minstd_rand g (rd());
+    std::uniform_int_distribution<> uid (1, 100);
+
+    // generate random numbers not in BST for testing purposes
+    int hold {0};
+    for (auto viter {vec_incorrect->begin()}; viter != vec_incorrect->end(); ++viter){
+        // loop until rand generator returns a value not included in the BST
+        do {
+            hold = uid(g); // get random
+        } while (included_set->find(hold) != included_set->end());
+        *viter = hold;
+    }
+    return;
 }
 
 
@@ -139,11 +154,25 @@ int main(){
         [[maybe_unused]] bstree<int> *root {CreateBTSFile<int>(file, &vec, &included_set)};
 
         // create file of random values that are not in file for testing
-        std::vector<int> vec_incorrect;
+        std::vector<int> vec_incorrect (vec.size(), 0);
         CreateIncorrectVector(&vec_incorrect, &included_set);
 
         // test to ensure BST includes all and only values from file
-        auto recieve_test {TestBST(root, vec)};
+        auto recieve_test {TestBST(root, &vec, &vec_incorrect)};
+        // lambdas to be passed to random vec gen to prevent value duplication
+            // OR force unique values
+        auto non_unique = [](std::unordered_set<int> *included_set, const int num)mutable {
+            // return false if number is not in list (stop)
+           return (included_set->find(num) != included_set->end());
+        };
+
+        auto unique = [](std::unordered_set<int> *included_set, const int num)mutable {
+            auto ibp {included_set->insert(num)};
+            return (ibp.second) ? false : true;
+        };
+
+        for (const auto n : vec_incorrect) std::cout << n << ' ';
+        std::cout << '\n';
 
         constexpr int find_me {33};
         bstree<int> *found = root->FindNode(find_me);
