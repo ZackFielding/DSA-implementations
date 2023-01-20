@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <unordered_set>
 #include <random>
+#include <functional>
+#include <cstring>
 
 template <typename T>
 class bstree {
@@ -126,7 +128,8 @@ std::pair<bool, i2DVEC> TestBST(bstree<T> *root, std::vector<int>* vecp_included
 }
 
 template <typename T>
-void CreateIncorrectVector(std::vector<T> *vec_incorrect, std::unordered_set<T> *included_set){
+void CreateIncorrectVector(std::vector<T> *vec_incorrect, std::unordered_set<T> *included_set,
+    std::function<bool(std::unordered_set<int>*, const int)> comparison_func){
     // psuedo random num generator set up
     std::random_device rd;
     std::minstd_rand g (rd());
@@ -138,14 +141,14 @@ void CreateIncorrectVector(std::vector<T> *vec_incorrect, std::unordered_set<T> 
         // loop until rand generator returns a value not included in the BST
         do {
             hold = uid(g); // get random
-        } while (included_set->find(hold) != included_set->end());
+        } while (comparison_func(included_set, hold));
         *viter = hold;
     }
     return;
 }
 
 
-int main(){
+int main(int argvc, char **argv){
     std::ifstream file {"bt data.txt."};
     if (!!file){
          // create binary search tree
@@ -153,23 +156,37 @@ int main(){
         std::unordered_set<int> included_set; // used to track included values
         [[maybe_unused]] bstree<int> *root {CreateBTSFile<int>(file, &vec, &included_set)};
 
+        // command line arg will determine what lamda to use for incorrect_vector value determination
+        std::function<bool(std::unordered_set<int>*, const int)> comparison_func;
+        if (argvc > 1){
+            constexpr char uc [] {"-u"}, nuc [] {"-n"};
+            if (std::strncmp(argv[1], uc, sizeof uc) == 0){
+                std::clog << "....... generating unique values ......\n";
+                comparison_func = [](std::unordered_set<int> *included_set, const int num)mutable {
+                    // return opposite of returned bool
+                    auto ibp {included_set->insert(num)};
+                    return (ibp.second) ? false : true;
+                    };
+            } else{
+                if (std::strncmp(argv[1], nuc, sizeof nuc) == 0){
+                    std::clog << "....... generating non-unique values ......\n";
+                } else {
+                    std::clog << "Unrecognized command line argument passed - defaulting to non-unique values.\n";
+                }
+                comparison_func = [](std::unordered_set<int> *included_set, const int num)mutable {
+                    // return false if number is not in list (stop)
+                    return (included_set->find(num) != included_set->end());
+                };
+            }
+        }
+
         // create file of random values that are not in file for testing
         std::vector<int> vec_incorrect (vec.size(), 0);
-        CreateIncorrectVector(&vec_incorrect, &included_set);
+        CreateIncorrectVector(&vec_incorrect, &included_set, comparison_func);
 
         // test to ensure BST includes all and only values from file
         auto recieve_test {TestBST(root, &vec, &vec_incorrect)};
-        // lambdas to be passed to random vec gen to prevent value duplication
-            // OR force unique values
-        auto non_unique = [](std::unordered_set<int> *included_set, const int num)mutable {
-            // return false if number is not in list (stop)
-           return (included_set->find(num) != included_set->end());
-        };
-
-        auto unique = [](std::unordered_set<int> *included_set, const int num)mutable {
-            auto ibp {included_set->insert(num)};
-            return (ibp.second) ? false : true;
-        };
+        if (!recieve_test.first) std::clog << "No erros found in BST.\n";
 
         for (const auto n : vec_incorrect) std::cout << n << ' ';
         std::cout << '\n';
