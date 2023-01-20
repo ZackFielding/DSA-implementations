@@ -46,12 +46,87 @@ public:
     bstree<T>() : val {0}, left {nullptr}, right {nullptr} {}
     
     // member functions
-    void RemoveNode(T aval);
-    bstree<T>* FindNode(T aval);
+    bstree<T>* RemoveNode(T, bstree<T> *);
+    bstree<T>* FindNode(T);
     void DeleteBST();
 };
 
-// MEMBER FUNC DEFINITIONS template <typename T> void bstree<T>::RemoveNode(T aval){
+// MEMBER FUNC DEFINITIONS template <typename T> void bstree<T>::RemoveNode(T aval)
+template <typename T>
+bstree<T>* bstree<T>::RemoveNode(T aval, bstree<T> *prev_node){
+    // case 0.5: value does not exist in list (do nothing)
+    // case 1: no child nodes => just delete it
+    // case 2: node has one child (replace node with child, delete child node)
+    // case 3: deleting parent node with 2 children => replace node with next highest node
+        // approach: visit right child of node, then keep visiting left nodes until lowest left node level
+        // if this node has a right child => fill in spot of lowest left with its right child node
+    // base case
+    if (this->val == aval){
+        // [PASSED] case 1 => no child nodes 
+        if (this->left == nullptr && this->right == nullptr){
+             // figure out which ptr of parent to null
+            if (this == prev_node->right) prev_node->right = nullptr;
+            else prev_node->left = nullptr;
+            delete this;
+            return nullptr;
+        } else {
+            // right swap is used x2 so use lambda
+            auto swap_right = [](bstree<T>* obj)mutable {
+                // copy over all of right childs members 
+                obj->val = obj->right->val;
+                obj->right = obj->right->right;
+                obj->left = obj->right->left;
+                delete obj->right; // dealloc right child
+            };
+
+        if (this->left == nullptr && this->right != nullptr){
+            // case 2a => one right child node
+            swap_right(this);
+
+        } else if (this->left != nullptr && this->right == nullptr){
+            // case 2b => copy over all of left childs members 
+            this->val = this->right->val;
+            this->right = this->right->right;
+            this->left = this->right->left;
+            delete this->right; // dealloc left child
+
+        } else if (this->left !=nullptr && this->right != nullptr){ 
+            // case 3 => if right child node has not children
+            if (this->right->right == nullptr && this->right->left == nullptr){
+                this->val = this->right->val;
+                this->right = nullptr;
+                this->left = nullptr;
+
+            } else {
+                 // iterate through left nodes until terminal left node found
+                bstree<T> *replace_me {this}, *current {this->right}, *previous {nullptr};
+                while (current->left != nullptr){
+                    previous = current;
+                    current = current->left;
+                }
+
+                // set replace node with terminal left node value
+                replace_me->val = current->val; 
+
+                // if terminal left has not right child
+                if (current->right == nullptr){
+                    previous->left = nullptr; // set parent node of terminal left, left ptr to null
+                    delete current; // dealloc this
+                } else {
+                    swap_right(current);
+                }
+            }
+        }
+        return this;
+        }
+    }
+
+    // recursive node finding
+    if (this->left != nullptr) return this->left->RemoveNode(aval, this);
+    if (this->right != nullptr) return this->right->RemoveNode(aval, this);
+    return nullptr; // case 0.5 => value does not exits in tree
+}
+
 template <typename T>
 bstree<T>* bstree<T>::FindNode(T aval){
     // base cases
@@ -191,10 +266,22 @@ int main(int argvc, char **argv){
         for (const auto n : vec_incorrect) std::cout << n << ' ';
         std::cout << '\n';
 
-        constexpr int find_me {33};
-        bstree<int> *found = root->FindNode(find_me);
-        if (found != nullptr) std::printf("%d found in binary search tree.\n", found->val);
-        else std::printf("%d not found in binary search tree.\n", find_me);
+        // lambda for finding node in bst and relaying result to user
+        auto PrintFindValue = [](int val_to_find, bstree<int>* root){
+            bstree<int> *found = root->FindNode(val_to_find);
+            if (found != nullptr) std::printf("%d found in binary search tree.\n", found->val);
+            else std::printf("%d not found in binary search tree.\n", val_to_find);
+        };
+
+        // find node
+        constexpr int find_remove_int {4};
+        PrintFindValue(find_remove_int, root);
+
+        // remove node terminal node
+        root->RemoveNode(find_remove_int, nullptr);
+        PrintFindValue(find_remove_int, root);
+
+        // dealloc tree
         root->DeleteBST();
     }
     return 0;
