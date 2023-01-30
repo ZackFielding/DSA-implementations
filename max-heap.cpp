@@ -14,7 +14,7 @@ inline static auto getRightChild = [](T pos) { return (pos*2)+2; };
     long long right_most_pos;
 public:
     //ctor no-arg
-    mHeap() : heap {new T[50]}, size {50}, right_most_pos {0} {}
+    mHeap() : heap {new T[5]}, size {5}, right_most_pos {0} {}
     //dtor
     ~mHeap() { delete [] heap; }
 
@@ -30,9 +30,9 @@ TEMP
 void mHeap<T>::insert(T val){
     // insert value into right-most available node
     // first check size of array and if re-sizing needs to take place
-    if (right_most_pos > size){
-        const auto old_byte_size {sizeof heap}; // required for memcpy
-        size += 50; // increase size by 50
+    if (right_most_pos >= size){
+        const auto old_byte_size {4*size}; // required for memcpy
+        size += 5; // increase size by 50
         T *new_heap =  new T[size]; // allocate new heap
         std::memcpy(new_heap, heap, old_byte_size); // copy contents to new heap 
         delete [] heap; // dealloc hold heap
