@@ -21,8 +21,10 @@ public:
     void r_delete_trie_node(trie*);
     void insert_string(const std::string*);
     std::string_view find_string(const std::string*, const prefix) const;
+    trie* find_string_return_node(const std::string*) const;
     trie* getRoot() const { return root; }
-    void collectAllWordsFromHere(std::vector<std::string>*, std::string, trie*);
+    void collectAllWordsFromHere(std::vector<std::string>*, std::string, trie*) const;
+    void autocomplete(const std::string*) const;
 };
 
 /* 
@@ -94,11 +96,27 @@ std::string_view trie::find_string(const std::string* str, const prefix check) c
     return std::string_view (&str->at(0), c);
 }
 
+trie* trie::find_string_return_node(const std::string *str) const{
+    trie *node = root;
+    cTMAP::const_iterator citer;
+
+    size_t c {0};
+    for (; c < str->size(); ++c){
+        citer = node->map.find(str->at(c));        
+        if (citer == node->map.cend()){
+            return nullptr;
+        } else node = citer->second;
+    }
+
+     // return next node to enable all suffix finding
+    return node;
+}
+
 // takes any node and computes all strings starting from said node
 // currently not very memory efficient but a very simple approach
 void trie::collectAllWordsFromHere(std::vector<std::string>* vec_str_p, 
                                    std::string being_built,
-                                   trie* node = root){
+                                   trie* node = root) const{
     cTMAP::const_iterator citer {node->map.find('*')};
      // <<base case>> check to see if terminal child node found
     if (node->map.size() == 1 && citer != node->map.cend()){
@@ -115,6 +133,21 @@ void trie::collectAllWordsFromHere(std::vector<std::string>* vec_str_p,
             vec_str_p -> push_back(being_built);
         }
     }
+    return;
+}
+
+void trie::autocomplete(const std::string* prefix) const{
+     // get starting node based on prefix
+    trie* start_trie_node {find_string_return_node(prefix)};
+
+    if (start_trie_node != nullptr){
+        std::vector<std::string> vec_str;
+        std::string being_built;
+        collectAllWordsFromHere(&vec_str, being_built, start_trie_node);
+        std::cout << "Autocomplete suggestions: "; 
+        for (const std::string& str : vec_str) std::cout << (*prefix + str) << ' ';
+        std::cout << '\n';
+    } else std::cout << "No words match entered prefix.\n";
     return;
 }
 
@@ -139,12 +172,11 @@ int main(){
     if (rec.size() > 0) std::cout << rec << '\n';
     else std::cout << '\'' << str2 << '\'' << " not found.\n";
 
-    std::vector<std::string> vec_str;
-    std::string base;
-    string_tri.collectAllWordsFromHere(&vec_str, base);
-
-    // test
-    for (const std::string& str : vec_str) std::cout << str << '\n';
+    // testing autocomplete functionality
+    std::string to_autocomplete;
+    std::cout << "Enter prefix for word suggestions:\n";
+    std::cin >> to_autocomplete;
+    string_tri.autocomplete(&to_autocomplete);
 
      // dealloc nodes && exit
     string_tri.r_delete_trie_node(string_tri.getRoot());
