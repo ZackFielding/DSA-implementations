@@ -3,3 +3,6 @@
 
 # ignore .txt
 *.txt
+
+# ignore review notes
+review.md

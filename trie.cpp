@@ -1,8 +1,10 @@
 #include <iostream>
+#include <fstream>
 #include <unordered_map>
 #include <string>
 #include <string_view>
 #include <cstdio>
+#include <vector>
 
 enum class prefix : int {PREFIX_ONLY = 1, ENTIRE_STRING};
 class trie;
@@ -20,6 +22,7 @@ public:
     void insert_string(const std::string*);
     std::string_view find_string(const std::string*, const prefix) const;
     trie* getRoot() const { return root; }
+    void collectAllWordsFromHere(std::vector<std::string>*, std::string, trie*);
 };
 
 /* 
@@ -91,16 +94,57 @@ std::string_view trie::find_string(const std::string* str, const prefix check) c
     return std::string_view (&str->at(0), c);
 }
 
+// takes any node and computes all strings starting from said node
+// currently not very memory efficient but a very simple approach
+void trie::collectAllWordsFromHere(std::vector<std::string>* vec_str_p, 
+                                   std::string being_built,
+                                   trie* node = root){
+    cTMAP::const_iterator citer {node->map.find('*')};
+     // <<base case>> check to see if terminal child node found
+    if (node->map.size() == 1 && citer != node->map.cend()){
+        vec_str_p -> push_back(being_built); 
+        return;
+    }
+
+     // iterate through current node's map
+    for (std::pair<char, trie*> p : node->map){
+         // not '*'
+        if (p.second != nullptr){
+            collectAllWordsFromHere(vec_str_p, (being_built + p.first), p.second);
+        } else { // '*' case
+            vec_str_p -> push_back(being_built);
+        }
+    }
+    return;
+}
+
 int main(){
+    // create empty trie
     trie string_tri {};
-    std::string str {"cat"};
-    string_tri.insert_string(&str);
+
+    // read data into trie from file
+    std::ifstream data_file {"trie_strings.txt"};
+    if (!!data_file){
+        std::string str {};
+        while (data_file){
+            data_file >> str;
+            string_tri.insert_string(&str);
+        }
+        data_file.close();
+    }
+
     std::string str2 {"dog"}; 
     std::string_view rec = string_tri.find_string(&str2, prefix::PREFIX_ONLY);
-
      // handle empty sv return
     if (rec.size() > 0) std::cout << rec << '\n';
     else std::cout << '\'' << str2 << '\'' << " not found.\n";
+
+    std::vector<std::string> vec_str;
+    std::string base;
+    string_tri.collectAllWordsFromHere(&vec_str, base);
+
+    // test
+    for (const std::string& str : vec_str) std::cout << str << '\n';
 
      // dealloc nodes && exit
     string_tri.r_delete_trie_node(string_tri.getRoot());
