@@ -2,8 +2,10 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <queue>
-#include <limits>
+#include <forward_list>
+#include <cstdio>
+#include <vector>
+#include <string_view>
 
 // weighted_graph class will call on vertex ctors
 class weighted_graph;
@@ -13,6 +15,7 @@ class vertex {
     // ctor
     vertex(const std::string str) : name {str}, adjacent_weight_map {} {}
     friend class ::weighted_graph;
+    friend std::string_view getVertexName(vertex* vert) { return std::string_view {vert->name.data(), vert->name.size()}; }
 };
 
 enum class to_print : int {NO_PRINT = 0, PRINT = 1};
@@ -32,7 +35,7 @@ public:
     void depth_first_search(vertex* vert, const to_print, std::unordered_set<const vertex*>*);
      // return an access point for search algos
     vertex* getVertexAccess(const std::string str) { return map.find(str)->second; }
-    int cheapestPath(const std::string, const std::string);
+    std::pair<int, std::forward_list<vertex*>> cheapestPath(const std::string, const std::string);
 };
 
 vertex* weighted_graph::add_vertex(const std::string str){
@@ -132,8 +135,27 @@ vertex* findShortestKnownVertex(std::unordered_map<vertex*, int> *map, std::unor
     return lowest_known_vertex.first;
 }
 
+void createSinglyLinkedListShortestPath(vertex *origin, vertex* dest, std::forward_list<vertex*> *sll, std::unordered_map<vertex*, vertex*> *map){
+
+     // insert destinations prior stop
+    sll->push_front(dest);
+    std::forward_list<vertex*>::iterator sll_iter = sll->insert_after(sll->begin(), map->find(dest)->second);
+    vertex *previous {nullptr};    
+
+    while (1){
+        // 1. Find previously inserted's prior stop
+        previous = map->find(*sll_iter)->second;
+        // 2. Insert into list
+        sll_iter = sll->insert_after(sll_iter, previous);
+        // 3. If origin was just inserted => break
+        if (previous == origin) break;
+    }
+    sll->reverse(); // reverse list
+    return;
+}
+
 // Dijkstra's algorithm
-int weighted_graph::cheapestPath(const std::string origin_str, const std::string dest_str){
+std::pair<int, std::forward_list<vertex*>> weighted_graph::cheapestPath(const std::string origin_str, const std::string dest_str){
 
     // convert origin & destination to vertex*
     vertex *origin {this->getVertexAccess(origin_str)};
@@ -147,8 +169,7 @@ int weighted_graph::cheapestPath(const std::string origin_str, const std::string
     std::unordered_map<vertex*, vertex*> m_cheapest_path_vertices {};
 
     // breadth-first search
-    std::queue<vertex*> q_vertex {}; std::unordered_set<vertex*> visited_set {};
-    q_vertex.push(this->getVertexAccess(origin_str));
+    std::unordered_set<vertex*> visited_set {};
     visited_set.insert(this->getVertexAccess(origin_str));
 
     vertex *current_vertex {origin};
@@ -184,9 +205,13 @@ int weighted_graph::cheapestPath(const std::string origin_str, const std::string
         }
     }
 
+     // generate singly linked list to illustrate lowest cost path
+    std::forward_list<vertex*> sll {};
+    createSinglyLinkedListShortestPath(origin, this->getVertexAccess(dest_str), &sll, &m_cheapest_path_vertices);
+
     // now that all vertices have been visited...
-    // find `dest_str` in cheapest path map && return its value
-    return m_cheapest_path_cost.find(this->getVertexAccess(dest_str))->second;
+    // find `dest_str` in cheapest path map && return its value as a pair with the singly linked list of optimal path
+    return {m_cheapest_path_cost.find(this->getVertexAccess(dest_str))->second, sll};
 }
 
 int main(){
@@ -194,11 +219,17 @@ int main(){
     if (file){
         weighted_graph wgraph {};
         createWeightedGraph(file, &wgraph);
+        file.close();
+
         std::unordered_set<const vertex*> track;
         //wgraph.depth_first_search(wgraph.getVertexAccess("ElPaso"), to_print::PRINT, &track);
-        std::string origin {"Boston"}, dest {"ElPaso"};
-        std::printf("Cheapest path from %s to %s is %d.\n", origin.data(), dest.data(), wgraph.cheapestPath(origin, dest));
-        file.close();
+
+        std::string origin {"Atlanta"}, dest {"ElPaso"};
+        std::pair<int, std::forward_list<vertex*>> result_pair {wgraph.cheapestPath(origin, dest)};
+        std::printf("Cheapest path from %s to %s is %d.\n", origin.data(), dest.data(), result_pair.first);
+
+        std::cout << "Optimal path: ";
+        for (const auto v : result_pair.second) std::cout << getVertexName(v) << ' ';
     }
 
     return 0;
