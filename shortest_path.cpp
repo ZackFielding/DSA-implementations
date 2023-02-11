@@ -2,6 +2,8 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
+#include <limits>
 
 // weighted_graph class will call on vertex ctors
 class weighted_graph;
@@ -30,6 +32,7 @@ public:
     void depth_first_search(vertex* vert, const to_print, std::unordered_set<const vertex*>*);
      // return an access point for search algos
     vertex* getVertexAccess(const std::string str) { return map.find(str)->second; }
+    int cheapestPath(const std::string, const std::string);
 };
 
 vertex* weighted_graph::add_vertex(const std::string str){
@@ -103,13 +106,98 @@ void weighted_graph::depth_first_search(vertex* vert, const to_print e_print, st
     return;
 }
 
+vertex* findShortestKnownVertex(std::unordered_map<vertex*, int> *map, std::unordered_set<vertex*> *visited_map){
+    
+    // this method is not very memory efficient, but it saves sorting complex pair types
+    // cache all known vertices that have been visited
+    std::vector<std::pair<vertex*, int>> vec;
+    for (const auto p : *map){
+        if (visited_map->find(p.first) == visited_map->end()){
+            vec.push_back(p);
+        }
+    }
+
+    // handle edge cases
+    if (vec.size() == 0) return nullptr;
+    if (vec.size() == 1) return vec[0].first;
+
+    // iterate through vector [assume first is lowest] => find vertex with lowest known distance from origin && return ptr
+    std::pair<vertex*, int> lowest_known_vertex {vec[0]};
+    for (std::size_t idx {1}; idx < vec.size(); ++idx){
+        if (vec[idx].second < lowest_known_vertex.second){
+            lowest_known_vertex = vec[idx];
+        }
+    }
+
+    return lowest_known_vertex.first;
+}
+
+// Dijkstra's algorithm
+int weighted_graph::cheapestPath(const std::string origin_str, const std::string dest_str){
+
+    // convert origin & destination to vertex*
+    vertex *origin {this->getVertexAccess(origin_str)};
+    
+     // track cheapest path to all visted vertices (cities)
+    std::unordered_map<vertex*, int> m_cheapest_path_cost {};
+    m_cheapest_path_cost.insert({origin, 0}); // cheapest path to self (0)
+
+     // track cheapest path vertices: key => stopover, value => current vertex (W)
+     // in order to get the cheapest flight from X to Y, we need to visit W before Y
+    std::unordered_map<vertex*, vertex*> m_cheapest_path_vertices {};
+
+    // breadth-first search
+    std::queue<vertex*> q_vertex {}; std::unordered_set<vertex*> visited_set {};
+    q_vertex.push(this->getVertexAccess(origin_str));
+    visited_set.insert(this->getVertexAccess(origin_str));
+
+    vertex *current_vertex {origin};
+    //std::pair<vertex*, int> next_pair {nullptr, std::numeric_limits<int>::max()};
+    std::unordered_map<vertex*, int>::iterator iter;
+    int current_path_length {0}, length {0};
+
+    while (current_vertex != nullptr){
+        visited_set.insert(current_vertex); // mark current vertex as visisted
+
+        // iterate through all of the current vertex's adjacents
+        for (const std::pair<vertex*, int> p : current_vertex->adjacent_weight_map){
+            iter = m_cheapest_path_cost.find(p.first);
+            length = p.second + current_path_length;
+
+            if (iter == m_cheapest_path_cost.end()){ // adjacent has not been `discovered` yet
+                m_cheapest_path_cost.insert({p.first, length}); 
+                m_cheapest_path_vertices.insert({p.first, current_vertex});
+
+            } else { // adjacent has been disovered
+                if (length < iter->second){ // if LESS THAN current listed...
+                    iter->second = length; // update with new, shortest path to vertex
+                    m_cheapest_path_vertices.find(p.first)->second = current_vertex; // update path tracker with current as new prior shortest stopover to get to adjacent
+                }
+            }
+        }
+
+        // next city to visit is the shortest KNOWN city that HAS NOT BEEN VISITED
+        // iterate through known map and find next city
+        current_vertex = findShortestKnownVertex(&m_cheapest_path_cost, &visited_set); 
+        if (current_vertex != nullptr){
+            current_path_length = m_cheapest_path_cost.find(current_vertex)->second;
+        }
+    }
+
+    // now that all vertices have been visited...
+    // find `dest_str` in cheapest path map && return its value
+    return m_cheapest_path_cost.find(this->getVertexAccess(dest_str))->second;
+}
+
 int main(){
     std::ifstream file {"shortest_path_data.txt"};
     if (file){
         weighted_graph wgraph {};
         createWeightedGraph(file, &wgraph);
         std::unordered_set<const vertex*> track;
-        wgraph.depth_first_search(wgraph.getVertexAccess("ElPaso"), to_print::PRINT, &track);
+        //wgraph.depth_first_search(wgraph.getVertexAccess("ElPaso"), to_print::PRINT, &track);
+        std::string origin {"Boston"}, dest {"ElPaso"};
+        std::printf("Cheapest path from %s to %s is %d.\n", origin.data(), dest.data(), wgraph.cheapestPath(origin, dest));
         file.close();
     }
 
